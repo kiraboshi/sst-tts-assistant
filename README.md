@@ -14,9 +14,15 @@ This app is a microphone-driven demo that uses Silero VAD to detect speech segme
   - New: if enabled, assistant replies are spoken via Coqui TTS (XTTS v2 voice cloning).
 
 Files of interest:
-- `run.py`: entry point with mic capture, VAD integration, and command handling.
+- `run.py`: minimal operational loop that orchestrates services and handles I/O.
 - `voice_activation.py`: Silero VAD wrapper for streaming speech detection.
 - `openai_client.py`: thin wrapper around the OpenAI (and OpenRouter) Chat Completions API.
+- `asr_service.py`: lazy-loading Whisper ASR service (Hugging Face Transformers).
+- `tts_service.py`: lazy-loading Coqui TTS (XTTS v2) service and playback helper.
+- `controller.py`: `ConversationController` managing wake/listen/reset/stop flow and assistant calls.
+- `audio_utils.py`: audio helpers (beep generation, simple linear resampling).
+- `regex_utils.py`: robust phrase-matching regex compiler for wake/stop/reset.
+- `warmup.py`: model warm-up orchestrator for TTS and ASR.
 
 ## Requirements
 - Python 3.10+
@@ -143,11 +149,11 @@ python run.py --asr-local-only
 
 1. `sounddevice` captures mono float32 frames at 16 kHz (default frame: 32 ms).
 2. `SileroVoiceActivation` processes frames via `silero_vad.VADIterator`, exposing `speech_start` and `speech_end`.
-3. On `speech_end`, the buffered audio segment feeds the Whisper pipeline for transcription.
-4. A simple controller tracks modes:
-   - Idle: waits for the wake phrase (regex-based, robust to punctuation). If enabled, an LLM heuristic can also confirm wake.
-   - Listen: accumulates text until the stop phrase (or LLM heuristic for stop), then prints and beeps.
-5. If the assistant is enabled, each listen-mode utterance can get a one-sentence response.
+3. On `speech_end`, the buffered audio segment is transcribed by `ASRService` (Whisper transformers pipeline).
+4. `ConversationController` manages modes:
+   - Idle: waits for the wake phrase (regex-based via `regex_utils`). If enabled, the assistant does fuzzy checks.
+   - Listen: accumulates text until the stop phrase (or assistant fuzzy stop), then prints and beeps.
+5. `OpenAIAssistant` optionally answers each listen-mode utterance. If TTS is enabled, `TTSService` speaks it.
 
 Timing logs like `[ASR] Loaded in …` and `[VAD] Initialized in …` help diagnose startup time.
 
