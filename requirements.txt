@@ -1,0 +1,11 @@
+torch
+soundfile
+sounddevice
+
+silero_vad
+openai
+transformers
+accelerate
+datasets[audio]
+
+coqui-tts
